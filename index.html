@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Element Quiz</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .draggable-list { list-style-type: none; padding: 0; }
+    .draggable-item { padding: 10px; margin: 4px 0; background-color: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; cursor: move; }
+    .dragging { opacity: 0.5; }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-6">
+  <div class="max-w-3xl mx-auto bg-white shadow-md rounded-xl p-6">
+    <h1 class="text-2xl font-bold mb-6 text-center">🔮 Discover Your Tetra Profile</h1>
+
+    <form id="quizForm">
+      <div id="quizContainer" class="space-y-6"></div>
+      <div class="text-center mt-8">
+        <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">Submit</button>
+      </div>
+    </form>
+
+    <div id="resultSection" class="hidden mt-10">
+      <h2 class="text-xl font-semibold mb-4 text-center">🌟 Your Results</h2>
+      <table id="resultTable" class="w-full text-left border mb-6">
+        <thead>
+          <tr class="bg-gray-200">
+            <th class="p-2">Element</th>
+            <th class="p-2">Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="p-2">🌍 Earth</td><td class="p-2" id="earthScore">0</td></tr>
+          <tr><td class="p-2">🌬️ Air</td><td class="p-2" id="airScore">0</td></tr>
+          <tr><td class="p-2">💧 Water</td><td class="p-2" id="waterScore">0</td></tr>
+          <tr><td class="p-2">🔥 Fire</td><td class="p-2" id="fireScore">0</td></tr>
+        </tbody>
+      </table>
+
+      <canvas id="resultChart" class="mb-4"></canvas>
+
+      <div class="flex gap-4 justify-center">
+        <button onclick="downloadChart()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Download Chart as PNG</button>
+        <button onclick="downloadCSV()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Export Table as CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const questions = [
+      ['Decisive', 'Orderly', 'Considerate', 'Spontaneous'],
+      ['Results', 'Systems', 'Support', 'Inspiration'],
+      ['Destination', 'Schedule', 'Journey', 'Dream'],
+      ['Blunt', 'Critical', 'Hesitant', 'Easily Distracted'],
+      ['Bold', 'Accurate', 'Patient', 'Enthusiastic'],
+      ['Facts', 'Logic', 'Feelings', 'Possibilities'],
+      ['Aggressive', 'Thorough', 'Caring', 'Sociable'],
+      ['Goals', 'Quality', 'Agreement', 'Ideas'],
+      ['Competitive', 'Analytical', 'Loyal', 'Optimistic'],
+      ['Use It', 'Check It', 'Share It', 'Play with It']
+    ];
+
+    const elements = ['Earth', 'Air', 'Water', 'Fire'];
+    const scores = { Earth: 0, Air: 0, Water: 0, Fire: 0 };
+
+    const container = document.getElementById('quizContainer');
+    questions.forEach((words, index) => {
+      const shuffled = words.map((w, i) => ({ word: w, element: elements[i] }))
+                            .sort(() => Math.random() - 0.5);
+
+      const block = document.createElement('div');
+      block.innerHTML = `<p class="font-medium mb-2">Q${index + 1}: Drag to rank from top (most like you) to bottom (least like you):</p>
+                         <ul class="draggable-list" id="list-${index}"></ul>`;
+
+      container.appendChild(block);
+
+      const list = block.querySelector(`#list-${index}`);
+      shuffled.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'draggable-item';
+        li.draggable = true;
+        li.dataset.element = item.element;
+        li.textContent = item.word;
+        list.appendChild(li);
+      });
+    });
+
+    document.addEventListener('dragstart', e => {
+      if (e.target.classList.contains('draggable-item')) {
+        e.target.classList.add('dragging');
+      }
+    });
+
+    document.addEventListener('dragend', e => {
+      if (e.target.classList.contains('draggable-item')) {
+        e.target.classList.remove('dragging');
+      }
+    });
+
+    document.querySelectorAll('.draggable-list').forEach(list => {
+      list.addEventListener('dragover', e => {
+        e.preventDefault();
+        const dragging = document.querySelector('.dragging');
+        const after = Array.from(list.children).find(li => {
+          const box = li.getBoundingClientRect();
+          return e.clientY < box.top + box.height / 2;
+        });
+        if (after) {
+          list.insertBefore(dragging, after);
+        } else {
+          list.appendChild(dragging);
+        }
+      });
+    });
+
+    document.getElementById('quizForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      Object.keys(scores).forEach(k => scores[k] = 0);
+
+      document.querySelectorAll('.draggable-list').forEach(list => {
+        Array.from(list.children).forEach((li, i) => {
+          const val = 4 - i; // 4 points for top, 1 for bottom
+          scores[li.dataset.element] += val;
+        });
+      });
+
+      document.getElementById('earthScore').textContent = scores.Earth;
+      document.getElementById('airScore').textContent = scores.Air;
+      document.getElementById('waterScore').textContent = scores.Water;
+      document.getElementById('fireScore').textContent = scores.Fire;
+
+      drawChart();
+      document.getElementById('resultSection').classList.remove('hidden');
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    });
+
+    let chart;
+    function drawChart() {
+      const ctx = document.getElementById('resultChart').getContext('2d');
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: elements,
+          datasets: [{
+            label: 'Your Element Scores',
+            data: [scores.Earth, scores.Air, scores.Water, scores.Fire],
+            fill: false,
+            tension: 0.3,
+            borderWidth: 3
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 40
+            }
+          }
+        }
+      });
+    }
+
+    function downloadChart() {
+      const url = chart.toBase64Image();
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'element-profile.png';
+      link.click();
+    }
+
+    function downloadCSV() {
+      const csvData = [
+        ['Element', 'Score'],
+        ['Earth', scores.Earth],
+        ['Air', scores.Air],
+        ['Water', scores.Water],
+        ['Fire', scores.Fire]
+      ];
+      const csv = Papa.unparse(csvData);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      saveAs(blob, 'element-scores.csv');
+    }
+  </script>
+</body>
+</html>
