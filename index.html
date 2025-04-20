@@ -2,23 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tetra Element Quiz</title>
+  <title>Element Quiz</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    .draggable-list { list-style-type: none; padding: 0; }
-    .draggable-item { padding: 10px; margin: 4px 0; background-color: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; cursor: move; }
-    .dragging { opacity: 0.5; }
+    .sortable-list { list-style-type: none; padding: 0; }
+    .sortable-item { padding: 12px; margin: 6px 0; background-color: #f9fafb; border: 1px solid #d1d5db; border-radius: 8px; cursor: grab; display: flex; align-items: center; justify-content: space-between; }
+    .sortable-item span { font-size: 1rem; flex: 1; }
+    .handle { margin-right: 12px; color: #9ca3af; cursor: grab; }
   </style>
 </head>
-<body class="bg-gray-100 text-gray-800 p-6">
+<body class="bg-gray-100 text-gray-800 p-4">
   <div class="max-w-3xl mx-auto bg-white shadow-md rounded-xl p-6">
-    <h1 class="text-2xl font-bold mb-6 text-center">🔮 Discover Your Tetra Profile</h1>
+    <h1 class="text-2xl font-bold mb-6 text-center">🔮 Discover Your Element Profile</h1>
 
     <form id="quizForm">
-      <div id="quizContainer" class="space-y-6"></div>
+      <div id="quizContainer" class="space-y-8"></div>
       <div class="text-center mt-8">
         <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">Submit</button>
       </div>
@@ -43,7 +46,7 @@
 
       <canvas id="resultChart" class="mb-4"></canvas>
 
-      <div class="flex gap-4 justify-center">
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
         <button onclick="downloadChart()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Download Chart as PNG</button>
         <button onclick="downloadCSV()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Export Table as CSV</button>
       </div>
@@ -74,46 +77,22 @@
 
       const block = document.createElement('div');
       block.innerHTML = `<p class="font-medium mb-2">Q${index + 1}: Drag to rank from top (most like you) to bottom (least like you):</p>
-                         <ul class="draggable-list" id="list-${index}"></ul>`;
-
+                         <ul class="sortable-list" id="list-${index}"></ul>`;
       container.appendChild(block);
 
       const list = block.querySelector(`#list-${index}`);
       shuffled.forEach(item => {
         const li = document.createElement('li');
-        li.className = 'draggable-item';
-        li.draggable = true;
+        li.className = 'sortable-item';
         li.dataset.element = item.element;
-        li.textContent = item.word;
+        li.innerHTML = `<span class="handle">☰</span><span>${item.word}</span>`;
         list.appendChild(li);
       });
-    });
 
-    document.addEventListener('dragstart', e => {
-      if (e.target.classList.contains('draggable-item')) {
-        e.target.classList.add('dragging');
-      }
-    });
-
-    document.addEventListener('dragend', e => {
-      if (e.target.classList.contains('draggable-item')) {
-        e.target.classList.remove('dragging');
-      }
-    });
-
-    document.querySelectorAll('.draggable-list').forEach(list => {
-      list.addEventListener('dragover', e => {
-        e.preventDefault();
-        const dragging = document.querySelector('.dragging');
-        const after = Array.from(list.children).find(li => {
-          const box = li.getBoundingClientRect();
-          return e.clientY < box.top + box.height / 2;
-        });
-        if (after) {
-          list.insertBefore(dragging, after);
-        } else {
-          list.appendChild(dragging);
-        }
+      Sortable.create(list, {
+        animation: 150,
+        handle: '.handle',
+        ghostClass: 'dragging'
       });
     });
 
@@ -121,7 +100,7 @@
       e.preventDefault();
       Object.keys(scores).forEach(k => scores[k] = 0);
 
-      document.querySelectorAll('.draggable-list').forEach(list => {
+      document.querySelectorAll('.sortable-list').forEach(list => {
         Array.from(list.children).forEach((li, i) => {
           const val = 4 - i; // 4 points for top, 1 for bottom
           scores[li.dataset.element] += val;
@@ -155,6 +134,8 @@
           }]
         },
         options: {
+          responsive: true,
+          maintainAspectRatio: false,
           scales: {
             y: {
               beginAtZero: true,
